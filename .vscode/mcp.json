@@ -4,7 +4,13 @@
          "id": "ado_org",
          "type": "promptString",
          "description": "Azure DevOps organization name  (e.g. 'contoso')"
-     }
+     },
+     {
+        "type": "promptString",
+        "id": "db_path",
+        "description": "SQLite Database Path",
+        "default": "${workspaceFolder}/data/creditsim.db"
+      }
    ],
    "servers": {
      "ado": {
@@ -13,8 +19,16 @@
          "args": [
              "-y",
              "@azure-devops/mcp",
-             "${input:ado_org}"
+             "rifiel-ms"
          ]
+      },
+      "sqlite": {
+        "command": "uvx",
+        "args": [
+          "mcp-server-sqlite",
+          "--db-path",
+          "${input:db_path}"
+        ]
       }
    }
 }
