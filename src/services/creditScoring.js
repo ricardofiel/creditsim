@@ -1,20 +1,4 @@
-/**
- * Credit Risk Scoring Logic
- * 
- * This is a simplified demonstration scoring model and should NOT be used
- * for actual credit decisions in production environments.
- */
 
-/**
- * Calculate credit score based on customer data
- * @param {Object} customerData - Customer information
- * @param {number} customerData.age - Customer age
- * @param {number} customerData.annualIncome - Annual income in dollars
- * @param {number} customerData.debtToIncomeRatio - Debt-to-income ratio (0-1)
- * @param {number} customerData.loanAmount - Requested loan amount
- * @param {string} customerData.creditHistory - Credit history ("good" or "bad")
- * @returns {Object} Object containing score and risk category
- */
 function calculateCreditScore(customerData) {
   const { age, annualIncome, debtToIncomeRatio, loanAmount, creditHistory } = customerData;
   
