@@ -1,0 +1,491 @@
+openapi: 3.0.3
+info:
+  title: Credit Risk Simulator API
+  description: |
+    A lightweight REST API for simulating credit risk scores based on customer data.
+    
+    **⚠️ Disclaimer**: This is a demonstration application only. Do not use for actual credit decisions or in production environments.
+    
+    ## Features
+    - Calculate credit scores using rule-based logic
+    - Store and retrieve simulation history
+    - Get scoring criteria explanations
+    
+    ## Scoring Logic
+    The scoring algorithm starts with a base score of 600 and applies adjustments based on:
+    - Age (penalties for <25 and >60)
+    - Annual income (bonus for >$50k)
+    - Debt-to-income ratio (penalty for >40%)
+    - Credit history (penalty for bad history)
+    - Loan-to-income ratio (penalty for >50%)
+    
+    Risk categories:
+    - **Low risk**: 750+
+    - **Medium risk**: 650-749
+    - **High risk**: <650
+    
+  version: 1.0.0
+  contact:
+    name: GitHub Copilot Demo
+  license:
+    name: MIT
+    
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+
+paths:
+  /simulate:
+    post:
+      summary: Calculate credit score
+      description: Calculate a credit score for a customer based on their financial data and demographic information.
+      operationId: simulateCreditScore
+      tags:
+        - Credit Simulation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+            examples:
+              typical_customer:
+                summary: Typical customer
+                value:
+                  name: "John Doe"
+                  age: 35
+                  annualIncome: 60000
+                  debtToIncomeRatio: 0.3
+                  loanAmount: 25000
+                  creditHistory: "good"
+              high_risk_customer:
+                summary: High risk customer
+                value:
+                  name: "Jane Smith"
+                  age: 22
+                  annualIncome: 30000
+                  debtToIncomeRatio: 0.6
+                  loanAmount: 20000
+                  creditHistory: "bad"
+      responses:
+        '201':
+          description: Credit score calculated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationResult'
+              examples:
+                successful_calculation:
+                  summary: Successful calculation
+                  value:
+                    id: 1
+                    score: 640
+                    riskCategory: "Medium risk"
+                    message: "Credit score calculated successfully"
+                    customer:
+                      name: "John Doe"
+                      age: 35
+                      annualIncome: 60000
+                      debtToIncomeRatio: 0.3
+                      loanAmount: 25000
+                      creditHistory: "good"
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /simulations:
+    get:
+      summary: Get all simulations
+      description: Retrieve a list of all previous credit score simulations.
+      operationId: getAllSimulations
+      tags:
+        - Credit Simulation
+      responses:
+        '200':
+          description: List of simulations retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationsList'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /simulation/{id}:
+    get:
+      summary: Get simulation by ID
+      description: Retrieve a specific credit score simulation by its ID.
+      operationId: getSimulationById
+      tags:
+        - Credit Simulation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the simulation
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Simulation retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationDetail'
+        '400':
+          description: Invalid ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '404':
+          description: Simulation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /scoring-criteria:
+    get:
+      summary: Get scoring criteria
+      description: Get detailed explanation of the credit scoring criteria and adjustments.
+      operationId: getScoringCriteria
+      tags:
+        - Information
+      responses:
+        '200':
+          description: Scoring criteria retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoringCriteria'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      summary: Health check
+      description: Check the health status of the API.
+      operationId: healthCheck
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+components:
+  schemas:
+    CustomerInput:
+      type: object
+      required:
+        - name
+        - age
+        - annualIncome
+        - debtToIncomeRatio
+        - loanAmount
+        - creditHistory
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Customer's full name
+          example: "John Doe"
+        age:
+          type: integer
+          minimum: 18
+          maximum: 120
+          description: Customer's age in years
+          example: 35
+        annualIncome:
+          type: number
+          minimum: 0
+          description: Annual income in dollars
+          example: 60000
+        debtToIncomeRatio:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Debt-to-income ratio as a decimal (e.g., 0.3 = 30%)
+          example: 0.3
+        loanAmount:
+          type: number
+          minimum: 1
+          description: Requested loan amount in dollars
+          example: 25000
+        creditHistory:
+          type: string
+          enum: ["good", "bad"]
+          description: Customer's credit history status
+          example: "good"
+
+    CustomerData:
+      allOf:
+        - $ref: '#/components/schemas/CustomerInput'
+
+    SimulationResult:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique identifier for the simulation
+          example: 1
+        score:
+          type: integer
+          minimum: 300
+          maximum: 850
+          description: Calculated credit score
+          example: 640
+        riskCategory:
+          type: string
+          enum: ["Low risk", "Medium risk", "High risk"]
+          description: Risk category based on the score
+          example: "Medium risk"
+        message:
+          type: string
+          description: Success message
+          example: "Credit score calculated successfully"
+        customer:
+          $ref: '#/components/schemas/CustomerData'
+
+    SimulationSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique identifier for the simulation
+          example: 1
+        name:
+          type: string
+          description: Customer name
+          example: "John Doe"
+        score:
+          type: integer
+          description: Calculated credit score
+          example: 640
+        riskCategory:
+          type: string
+          enum: ["Low risk", "Medium risk", "High risk"]
+          description: Risk category
+          example: "Medium risk"
+        loanAmount:
+          type: number
+          description: Loan amount requested
+          example: 25000
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when simulation was created
+          example: "2024-01-15T10:30:00.000Z"
+
+    SimulationDetail:
+      type: object
+      properties:
+        simulation:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+            name:
+              type: string
+              example: "John Doe"
+            age:
+              type: integer
+              example: 35
+            annualIncome:
+              type: number
+              example: 60000
+            debtToIncomeRatio:
+              type: number
+              example: 0.3
+            loanAmount:
+              type: number
+              example: 25000
+            creditHistory:
+              type: string
+              enum: ["good", "bad"]
+              example: "good"
+            score:
+              type: integer
+              example: 640
+            riskCategory:
+              type: string
+              enum: ["Low risk", "Medium risk", "High risk"]
+              example: "Medium risk"
+            createdAt:
+              type: string
+              format: date-time
+              example: "2024-01-15T10:30:00.000Z"
+
+    SimulationsList:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: Total number of simulations
+          example: 2
+        simulations:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimulationSummary'
+
+    ScoringCriteria:
+      type: object
+      properties:
+        criteria:
+          type: object
+          properties:
+            baseScore:
+              type: integer
+              description: Starting score before adjustments
+              example: 600
+            adjustments:
+              type: object
+              properties:
+                age:
+                  type: object
+                  properties:
+                    under25:
+                      type: integer
+                      description: Score adjustment for age under 25
+                      example: -50
+                    over60:
+                      type: integer
+                      description: Score adjustment for age over 60
+                      example: -30
+                income:
+                  type: object
+                  properties:
+                    over50k:
+                      type: integer
+                      description: Score bonus for income over $50,000
+                      example: 40
+                debtToIncomeRatio:
+                  type: object
+                  properties:
+                    over40percent:
+                      type: integer
+                      description: Score penalty for debt-to-income over 40%
+                      example: -80
+                creditHistory:
+                  type: object
+                  properties:
+                    bad:
+                      type: integer
+                      description: Score penalty for bad credit history
+                      example: -150
+                loanToIncomeRatio:
+                  type: object
+                  properties:
+                    over50percent:
+                      type: integer
+                      description: Score penalty for loan-to-income over 50%
+                      example: -50
+            riskCategories:
+              type: object
+              properties:
+                lowRisk:
+                  type: string
+                  example: "750+"
+                mediumRisk:
+                  type: string
+                  example: "650-749"
+                highRisk:
+                  type: string
+                  example: "Below 650"
+        disclaimer:
+          type: string
+          description: Legal disclaimer about the demonstration nature
+          example: "This is a demonstration scoring model and should not be used for actual credit decisions."
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Health status
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          description: Current timestamp
+          example: "2024-01-15T10:30:00.000Z"
+        uptime:
+          type: number
+          description: Server uptime in seconds
+          example: 3600
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Something went wrong!"
+        message:
+          type: string
+          description: Detailed error message
+          example: "Internal server error"
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+          example: "Validation failed"
+        details:
+          type: array
+          description: Array of validation error details
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                example: "field"
+              msg:
+                type: string
+                example: "Age must be an integer between 18 and 120"
+              path:
+                type: string
+                example: "age"
+              location:
+                type: string
+                example: "body"
+
+tags:
+  - name: Credit Simulation
+    description: Operations related to credit score simulation
+  - name: Information
+    description: Operations for getting system information
+  - name: System
+    description: System health and status operations
