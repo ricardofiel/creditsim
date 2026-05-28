@@ -6,7 +6,5 @@ namespace CreditSim.Web
 {
     public partial class Default
     {
-        protected System.Web.UI.WebControls.GridView GridView1 = null!;
     }
 }
-

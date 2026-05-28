@@ -5,65 +5,194 @@
 <head runat="server">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Credit Risk Simulator – Customer List</title>
+    <title>Credit Risk Simulator</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet" />
     <style>
-        .low-risk    { color: #28a745; font-weight: bold; }
-        .medium-risk { color: #ffc107; font-weight: bold; }
-        .high-risk   { color: #dc3545; font-weight: bold; }
-        .pager-row td { background: #f8f9fa; }
+        .score-card {
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .low-risk { border-left: 5px solid #28a745; }
+        .medium-risk { border-left: 5px solid #ffc107; }
+        .high-risk { border-left: 5px solid #dc3545; }
+        .score-number {
+            font-size: 3rem;
+            font-weight: bold;
+        }
+        .simulation-item {
+            transition: transform 0.2s;
+        }
+        .simulation-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .form-range {
+            height: 6px;
+        }
+        .form-range::-webkit-slider-thumb {
+            width: 20px;
+            height: 20px;
+            background: #0d6efd;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .form-range::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #0d6efd;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .form-range:focus {
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
     </style>
 </head>
 <body class="bg-light">
-    <form id="form1" runat="server">
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand" href="#">
                 <i class="bi bi-calculator"></i> Credit Risk Simulator
             </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link text-white" href="public/simulate.html">
-                    <i class="bi bi-person-plus"></i> New Simulation
-                </a>
-            </div>
+            <span class="navbar-text">
+                Demo Application - Not for Production Use
+            </span>
         </div>
     </nav>
 
     <div class="container mt-4">
-        <div class="card">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-clock-history"></i> Customer Simulations
-                </h5>
-                <a href="public/simulate.html" class="btn btn-light btn-sm">
-                    <i class="bi bi-plus-circle"></i> Run New Simulation
-                </a>
+        <div class="row">
+            <!-- Input Form -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-person-plus"></i> Customer Information
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="creditForm">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Full Name</label>
+                                <input type="text" class="form-control" id="name" name="name" required />
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="age" class="form-label">Age</label>
+                                        <input type="number" class="form-control" id="age" name="age" min="18" max="120" required />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="annualIncome" class="form-label">Annual Income ($)</label>
+                                        <input type="number" class="form-control" id="annualIncome" name="annualIncome" min="0" step="any" required />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="debtToIncomeRatio" class="form-label">Debt-to-Income Ratio</label>
+                                        <input type="number" class="form-control" id="debtToIncomeRatio" name="debtToIncomeRatio" min="0" max="1" step="0.01" required />
+                                        <div class="form-text">Enter as decimal (e.g., 0.3 for 30%)</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="loanAmount" class="form-label">Loan Amount</label>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span class="text-muted">$5,000</span>
+                                            <span id="loanAmountDisplay" class="fw-bold text-primary">$15,000</span>
+                                            <span class="text-muted">$25,000</span>
+                                        </div>
+                                        <input type="range" class="form-range" id="loanAmount" name="loanAmount"
+                                               min="5000" max="25000" step="1000" value="15000" required />
+                                        <input type="hidden" id="loanAmountValue" name="loanAmountValue" value="15000" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="creditHistory" class="form-label">Credit History</label>
+                                <select class="form-select" id="creditHistory" name="creditHistory" required>
+                                    <option value="">Select...</option>
+                                    <option value="good">Good</option>
+                                    <option value="bad">Bad</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-calculator"></i> Calculate Credit Score
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-0">
-                <asp:GridView
-                    ID="GridView1"
-                    runat="server"
-                    AllowPaging="true"
-                    PageSize="10"
-                    AutoGenerateColumns="false"
-                    OnPageIndexChanging="GridView1_PageIndexChanging"
-                    CssClass="table table-striped table-hover mb-0"
-                    GridLines="None"
-                    HeaderStyle-CssClass="table-primary">
-                    <Columns>
-                        <asp:BoundField DataField="Id"           HeaderText="ID"           />
-                        <asp:BoundField DataField="Name"         HeaderText="Name"         />
-                        <asp:BoundField DataField="Age"          HeaderText="Age"          />
-                        <asp:BoundField DataField="Score"        HeaderText="Score"        />
-                        <asp:BoundField DataField="RiskCategory" HeaderText="Risk"         />
-                        <asp:BoundField DataField="LoanAmount"   HeaderText="Loan Amount"  DataFormatString="{0:C0}" />
-                        <asp:BoundField DataField="AnnualIncome" HeaderText="Annual Income" DataFormatString="{0:C0}" />
-                        <asp:BoundField DataField="CreditHistory" HeaderText="Credit History" />
-                        <asp:BoundField DataField="CreatedAt"    HeaderText="Date"         DataFormatString="{0:g}" />
-                    </Columns>
-                    <PagerStyle CssClass="pagination justify-content-center" />
-                </asp:GridView>
+
+            <!-- Results -->
+            <div class="col-lg-6">
+                <div id="resultCard" class="card score-card d-none">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-graph-up"></i> Credit Score Result
+                        </h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <div id="scoreNumber" class="score-number"></div>
+                        <div id="riskCategory" class="badge fs-6 mb-3"></div>
+                        <div id="customerName" class="text-muted"></div>
+                        <hr />
+                        <div class="row text-start">
+                            <div class="col-6">
+                                <small class="text-muted">Loan Amount:</small><br />
+                                <span id="resultLoanAmount"></span>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Annual Income:</small><br />
+                                <span id="resultIncome"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="errorCard" class="card border-danger d-none">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-exclamation-triangle"></i> Error
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="errorMessage"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Previous Simulations -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-clock-history"></i> Previous Simulations
+                        </h5>
+                        <button class="btn btn-outline-primary btn-sm" id="refreshBtn" type="button">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="simulationsList">
+                            <div class="text-center text-muted">
+                                <i class="bi bi-hourglass-split"></i> Loading...
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -76,8 +205,8 @@
             </small>
         </div>
     </footer>
-    </form>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="public/app.js"></script>
 </body>
 </html>
-

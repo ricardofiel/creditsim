@@ -370,5 +370,17 @@
     "Score": 500,
     "riskCategory": "High risk",
     "createdAt": "2026-05-28T20:25:23.8889033Z"
+  },
+  {
+    "Id": 32,
+    "Name": "Richard",
+    "Age": 40,
+    "annualIncome": 200000.0,
+    "debtToIncomeRatio": 0.3,
+    "loanAmount": 15000.0,
+    "creditHistory": "good",
+    "Score": 710,
+    "riskCategory": "Medium risk",
+    "createdAt": "2026-05-28T21:12:38.1482246Z"
   }
 ]

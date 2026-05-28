@@ -102,7 +102,6 @@
 	<Content Include="Web.config" />
 	<Content Include="Default.aspx" />
 	<Content Include="public\app.js" />
-	<Content Include="public\simulate.html" />
   </ItemGroup>
   <ItemGroup>
 	<Compile Include="App_Start\WebApiConfig.cs" />
