@@ -1,8 +1,8 @@
 using System;
-using System.Configuration;
 using System.Linq;
 using System.Web.UI.WebControls;
 using CreditSim.Data.Repositories;
+using CreditSim.Web.Controllers;
 
 namespace CreditSim.Web
 {
@@ -13,8 +13,7 @@ namespace CreditSim.Web
     public partial class Default : System.Web.UI.Page
     {
         private ICustomerRepository Repository =>
-            new CustomerRepository(
-                ConfigurationManager.ConnectionStrings["CreditSimDb"].ConnectionString);
+            new CustomerRepository(ConnectionStringProvider.Get());
 
         protected void Page_Load(object sender, EventArgs e)
         {
@@ -39,3 +38,4 @@ namespace CreditSim.Web
         }
     }
 }
+

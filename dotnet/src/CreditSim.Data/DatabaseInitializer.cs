@@ -1,70 +1,43 @@
-using System;
-using System.Collections.Generic;
-using System.Data.SQLite;
 using System.Threading.Tasks;
 using CreditSim.Core.Models;
 using CreditSim.Core.Services;
 using CreditSim.Data.Repositories;
-using Dapper;
 
 namespace CreditSim.Data
 {
     /// <summary>
-    /// Creates the database schema and seeds initial data.
-    /// Mirrors src/database/setup.js and src/database/seed.js.
+    /// Seeds the file-based customer store with initial data if it is empty.
     /// </summary>
     public class DatabaseInitializer
     {
-        private readonly string _connectionString;
+        private readonly string _filePath;
         private readonly ICreditScoringService _scoringService;
 
-        public DatabaseInitializer(string connectionString, ICreditScoringService scoringService)
+        public DatabaseInitializer(string filePath, ICreditScoringService scoringService)
         {
-            _connectionString = connectionString;
+            _filePath = filePath;
             _scoringService = scoringService;
         }
 
         public async Task InitializeAsync()
         {
-            await CreateTablesAsync();
             await SeedIfNeededAsync();
-        }
-
-        private async Task CreateTablesAsync()
-        {
-            const string sql = @"
-                CREATE TABLE IF NOT EXISTS customers (
-                    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name           TEXT    NOT NULL,
-                    age            INTEGER NOT NULL,
-                    annualIncome   REAL    NOT NULL,
-                    debtToIncomeRatio REAL NOT NULL,
-                    loanAmount     REAL    NOT NULL,
-                    creditHistory  TEXT    NOT NULL CHECK (creditHistory IN ('good', 'bad')),
-                    score          INTEGER NOT NULL,
-                    riskCategory   TEXT    NOT NULL CHECK (riskCategory IN ('Low risk', 'Medium risk', 'High risk')),
-                    createdAt      DATETIME DEFAULT CURRENT_TIMESTAMP
-                )";
-
-            using var conn = new SQLiteConnection(_connectionString);
-            conn.Open();
-            await conn.ExecuteAsync(sql);
         }
 
         private async Task SeedIfNeededAsync()
         {
-            var repo = new CustomerRepository(_connectionString);
+            var repo = new CustomerRepository(_filePath);
             int count = await repo.CountAsync();
 
             if (count >= 30)
             {
                 System.Diagnostics.Trace.TraceInformation(
-                    $"Database already has {count} simulations, skipping seed");
+                    $"Customer store already has {count} simulations, skipping seed");
                 return;
             }
 
             System.Diagnostics.Trace.TraceInformation(
-                $"Database has {count} simulations, seeding {SeedData.Length} records...");
+                $"Customer store has {count} simulations, seeding {SeedData.Length} records...");
 
             foreach (var sim in SeedData)
             {

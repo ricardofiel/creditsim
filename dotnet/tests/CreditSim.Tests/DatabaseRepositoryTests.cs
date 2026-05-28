@@ -1,54 +1,33 @@
 using System;
-using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CreditSim.Core.Models;
 using CreditSim.Data.Repositories;
-using Dapper;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CreditSim.Tests
 {
     /// <summary>
-    /// Integration tests for CustomerRepository against a real (temp-file) SQLite database.
+    /// Integration tests for the file-based <see cref="CustomerRepository"/>.
     /// </summary>
     [TestClass]
     public class DatabaseRepositoryTests
     {
-        private string _dbPath = string.Empty;
-        private string _connectionString = string.Empty;
+        private string _filePath = string.Empty;
         private CustomerRepository _repo = null!;
 
         [TestInitialize]
-        public async Task Setup()
+        public void Setup()
         {
-            _dbPath = Path.Combine(Path.GetTempPath(), $"creditsim_test_{Guid.NewGuid():N}.db");
-            _connectionString = $"Data Source={_dbPath};Version=3;";
-            _repo = new CustomerRepository(_connectionString);
-
-            // Create the schema for each test
-            using var conn = new SQLiteConnection(_connectionString);
-            conn.Open();
-            await conn.ExecuteAsync(@"
-                CREATE TABLE IF NOT EXISTS customers (
-                    id               INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name             TEXT    NOT NULL,
-                    age              INTEGER NOT NULL,
-                    annualIncome     REAL    NOT NULL,
-                    debtToIncomeRatio REAL   NOT NULL,
-                    loanAmount       REAL    NOT NULL,
-                    creditHistory    TEXT    NOT NULL,
-                    score            INTEGER NOT NULL,
-                    riskCategory     TEXT    NOT NULL,
-                    createdAt        DATETIME DEFAULT CURRENT_TIMESTAMP
-                )");
+            _filePath = Path.Combine(Path.GetTempPath(), $"creditsim_test_{Guid.NewGuid():N}.json");
+            _repo = new CustomerRepository(_filePath);
         }
 
         [TestCleanup]
         public void Cleanup()
         {
-            try { if (File.Exists(_dbPath)) File.Delete(_dbPath); }
+            try { if (File.Exists(_filePath)) File.Delete(_filePath); }
             catch { /* best-effort cleanup */ }
         }
 

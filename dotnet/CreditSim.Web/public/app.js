@@ -250,3 +250,4 @@ class CreditSimulator {
 document.addEventListener('DOMContentLoaded', () => {
     new CreditSimulator();
 });
+

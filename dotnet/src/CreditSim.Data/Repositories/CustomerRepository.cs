@@ -1,84 +1,108 @@
+using System;
 using System.Collections.Generic;
-using System.Data.SQLite;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using CreditSim.Core.Models;
-using Dapper;
+using Newtonsoft.Json;
 
 namespace CreditSim.Data.Repositories
 {
     /// <summary>
-    /// SQLite implementation of <see cref="ICustomerRepository"/> using Dapper.
-    /// Mirrors the Database class in src/database/database.js.
+    /// File-backed implementation of <see cref="ICustomerRepository"/>.
+    /// Persists all customers as a single JSON array on disk.
     /// </summary>
     public class CustomerRepository : ICustomerRepository
     {
-        private readonly string _connectionString;
+        private readonly string _filePath;
+        private readonly object _sync = new object();
 
-        public CustomerRepository(string connectionString)
+        public CustomerRepository(string filePath)
         {
-            _connectionString = connectionString;
+            _filePath = filePath;
         }
 
-        private SQLiteConnection OpenConnection()
+        private List<Customer> Load()
         {
-            var conn = new SQLiteConnection(_connectionString);
-            conn.Open();
-            conn.Execute("PRAGMA foreign_keys = ON");
-            return conn;
+            if (!File.Exists(_filePath))
+                return new List<Customer>();
+
+            var json = File.ReadAllText(_filePath);
+            if (string.IsNullOrWhiteSpace(json))
+                return new List<Customer>();
+
+            return JsonConvert.DeserializeObject<List<Customer>>(json) ?? new List<Customer>();
         }
 
-        /// <inheritdoc />
-        public async Task<Customer> InsertAsync(Customer customer)
+        private void Save(List<Customer> customers)
         {
-            const string sql = @"
-                INSERT INTO customers (name, age, annualIncome, debtToIncomeRatio, loanAmount, creditHistory, score, riskCategory)
-                VALUES (@Name, @Age, @AnnualIncome, @DebtToIncomeRatio, @LoanAmount, @CreditHistory, @Score, @RiskCategory);
-                SELECT last_insert_rowid();";
+            var dir = Path.GetDirectoryName(_filePath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
 
-            using var conn = OpenConnection();
-            var id = await conn.ExecuteScalarAsync<long>(sql, customer);
-            customer.Id = (int)id;
-            return customer;
-        }
-
-        /// <inheritdoc />
-        public async Task<IEnumerable<Customer>> GetAllAsync()
-        {
-            const string sql = "SELECT * FROM customers ORDER BY createdAt DESC";
-            using var conn = OpenConnection();
-            return await conn.QueryAsync<Customer>(sql);
+            var json = JsonConvert.SerializeObject(customers, Formatting.Indented);
+            File.WriteAllText(_filePath, json);
         }
 
         /// <inheritdoc />
-        public async Task<Customer?> GetByIdAsync(int id)
+        public Task<Customer> InsertAsync(Customer customer)
         {
-            const string sql = "SELECT * FROM customers WHERE id = @Id";
-            using var conn = OpenConnection();
-            return await conn.QuerySingleOrDefaultAsync<Customer>(sql, new { Id = id });
-        }
-
-        /// <inheritdoc />
-        public async Task<int> CountAsync()
-        {
-            const string sql = "SELECT COUNT(*) FROM customers";
-            using var conn = OpenConnection();
-            return await conn.ExecuteScalarAsync<int>(sql);
-        }
-
-        /// <inheritdoc />
-        public async Task<IEnumerable<Customer>> GetPagedAsync(int pageIndex, int pageSize)
-        {
-            const string sql = @"
-                SELECT * FROM customers
-                ORDER BY createdAt DESC
-                LIMIT @PageSize OFFSET @Offset";
-
-            using var conn = OpenConnection();
-            return await conn.QueryAsync<Customer>(sql, new
+            lock (_sync)
             {
-                PageSize = pageSize,
-                Offset = pageIndex * pageSize
-            });
+                var all = Load();
+                customer.Id = all.Count == 0 ? 1 : all.Max(c => c.Id) + 1;
+                if (customer.CreatedAt == default)
+                    customer.CreatedAt = DateTime.UtcNow;
+                all.Add(customer);
+                Save(all);
+                return Task.FromResult(customer);
+            }
+        }
+
+        /// <inheritdoc />
+        public Task<IEnumerable<Customer>> GetAllAsync()
+        {
+            lock (_sync)
+            {
+                IEnumerable<Customer> result = Load()
+                    .OrderByDescending(c => c.CreatedAt)
+                    .ToList();
+                return Task.FromResult(result);
+            }
+        }
+
+        /// <inheritdoc />
+        public Task<Customer?> GetByIdAsync(int id)
+        {
+            lock (_sync)
+            {
+                var match = Load().FirstOrDefault(c => c.Id == id);
+                return Task.FromResult<Customer?>(match);
+            }
+        }
+
+        /// <inheritdoc />
+        public Task<int> CountAsync()
+        {
+            lock (_sync)
+            {
+                return Task.FromResult(Load().Count);
+            }
+        }
+
+        /// <inheritdoc />
+        public Task<IEnumerable<Customer>> GetPagedAsync(int pageIndex, int pageSize)
+        {
+            lock (_sync)
+            {
+                IEnumerable<Customer> result = Load()
+                    .OrderByDescending(c => c.CreatedAt)
+                    .Skip(pageIndex * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+                return Task.FromResult(result);
+            }
         }
     }
 }
+

@@ -81,3 +81,4 @@ namespace CreditSim.Web.Models
         public string? Message { get; set; }
     }
 }
+
