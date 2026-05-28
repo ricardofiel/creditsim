@@ -149,3 +149,6 @@ dotnet/**/*.suo
 *.suo
 *.user
 .vs/
+
+# NuGet restore output (packages.config style)
+dotnet/packages/
