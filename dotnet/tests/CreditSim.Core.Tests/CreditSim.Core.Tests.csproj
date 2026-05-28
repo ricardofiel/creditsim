@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- net8.0 used for Linux CI; net472 for full .NET Framework on Windows -->
-    <TargetFrameworks>net8.0;net472</TargetFrameworks>
+    <TargetFramework>net472</TargetFramework>
     <LangVersion>latest</LangVersion>
     <AssemblyName>CreditSim.Core.Tests</AssemblyName>
     <RootNamespace>CreditSim.Tests</RootNamespace>
