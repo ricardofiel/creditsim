@@ -1,22 +1,22 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Threading.Tasks;
-using System.Web.Http;
-using System.Web.Http.Results;
 using CreditSim.Core.Models;
 using CreditSim.Core.Services;
 using CreditSim.Data.Repositories;
 using CreditSim.Web.Controllers;
 using CreditSim.Web.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
 namespace CreditSim.Tests
 {
     /// <summary>
-    /// Unit tests for SimulationController.
+    /// Unit tests for SimulationController (ASP.NET Core).
     /// Mirrors every test in tests/api.test.js.
     /// Uses Moq to mock ICreditScoringService and ICustomerRepository.
     /// </summary>
@@ -42,15 +42,19 @@ namespace CreditSim.Tests
         {
             _mockService = new Mock<ICreditScoringService>();
             _mockRepo    = new Mock<ICustomerRepository>();
-            _controller  = new SimulationController(_mockService.Object, _mockRepo.Object);
-
-            // Wire up the controller request context (required for Content() helper)
-            _controller.Request = new HttpRequestMessage();
-            _controller.Request.SetConfiguration(new HttpConfiguration());
+            _controller  = new SimulationController(
+                _mockService.Object,
+                _mockRepo.Object,
+                NullLogger<SimulationController>.Instance);
         }
 
-        [TestCleanup]
-        public void Cleanup() => _controller.Dispose();
+        private static ObjectResult AssertObjectResult(IActionResult result, HttpStatusCode expected)
+        {
+            var objectResult = result as ObjectResult;
+            Assert.IsNotNull(objectResult, $"Expected ObjectResult, got {result?.GetType().Name}");
+            Assert.AreEqual((int)expected, objectResult!.StatusCode);
+            return objectResult;
+        }
 
         // ----------------------------------------------------------------
         // POST /api/simulate
@@ -72,14 +76,14 @@ namespace CreditSim.Tests
 
             var result = await _controller.Simulate(ValidRequest());
 
-            var content = result as NegotiatedContentResult<SimulateResponse>;
-            Assert.IsNotNull(content, "Expected NegotiatedContentResult<SimulateResponse>");
-            Assert.AreEqual(HttpStatusCode.Created, content.StatusCode);
-            Assert.AreEqual(1,           content.Content.Id);
-            Assert.AreEqual(640,         content.Content.Score);
-            Assert.AreEqual("High risk", content.Content.RiskCategory);
-            Assert.AreEqual("Credit score calculated successfully", content.Content.Message);
-            Assert.AreEqual("John Doe",  content.Content.Customer.Name);
+            var objectResult = AssertObjectResult(result, HttpStatusCode.Created);
+            var payload = objectResult.Value as SimulateResponse;
+            Assert.IsNotNull(payload, "Expected SimulateResponse payload");
+            Assert.AreEqual(1,           payload!.Id);
+            Assert.AreEqual(640,         payload.Score);
+            Assert.AreEqual("High risk", payload.RiskCategory);
+            Assert.AreEqual("Credit score calculated successfully", payload.Message);
+            Assert.AreEqual("John Doe",  payload.Customer.Name);
         }
 
         [TestMethod]
@@ -89,11 +93,11 @@ namespace CreditSim.Tests
 
             var result = await _controller.Simulate(new SimulationRequest());
 
-            var content = result as NegotiatedContentResult<ErrorResponse>;
-            Assert.IsNotNull(content, "Expected NegotiatedContentResult<ErrorResponse>");
-            Assert.AreEqual(HttpStatusCode.BadRequest, content.StatusCode);
-            Assert.AreEqual("Validation failed", content.Content.Error);
-            Assert.IsNotNull(content.Content.Details);
+            var objectResult = AssertObjectResult(result, HttpStatusCode.BadRequest);
+            var payload = objectResult.Value as ErrorResponse;
+            Assert.IsNotNull(payload, "Expected ErrorResponse payload");
+            Assert.AreEqual("Validation failed", payload!.Error);
+            Assert.IsNotNull(payload.Details);
         }
 
         [TestMethod]
@@ -104,10 +108,10 @@ namespace CreditSim.Tests
 
             var result = await _controller.Simulate(new SimulationRequest { AnnualIncome = -1 });
 
-            var content = result as NegotiatedContentResult<ErrorResponse>;
-            Assert.IsNotNull(content);
-            Assert.AreEqual(HttpStatusCode.BadRequest, content.StatusCode);
-            Assert.AreEqual("Validation failed", content.Content.Error);
+            var objectResult = AssertObjectResult(result, HttpStatusCode.BadRequest);
+            var payload = objectResult.Value as ErrorResponse;
+            Assert.IsNotNull(payload);
+            Assert.AreEqual("Validation failed", payload!.Error);
         }
 
         [TestMethod]
@@ -118,9 +122,7 @@ namespace CreditSim.Tests
 
             var result = await _controller.Simulate(new SimulationRequest { Age = 17 });
 
-            var content = result as NegotiatedContentResult<ErrorResponse>;
-            Assert.IsNotNull(content);
-            Assert.AreEqual(HttpStatusCode.BadRequest, content.StatusCode);
+            AssertObjectResult(result, HttpStatusCode.BadRequest);
         }
 
         [TestMethod]
@@ -132,9 +134,7 @@ namespace CreditSim.Tests
             var result = await _controller.Simulate(
                 new SimulationRequest { CreditHistory = "excellent" });
 
-            var content = result as NegotiatedContentResult<ErrorResponse>;
-            Assert.IsNotNull(content);
-            Assert.AreEqual(HttpStatusCode.BadRequest, content.StatusCode);
+            AssertObjectResult(result, HttpStatusCode.BadRequest);
         }
 
         // ----------------------------------------------------------------
@@ -154,11 +154,12 @@ namespace CreditSim.Tests
 
             var result = await _controller.GetSimulations();
 
-            var ok = result as OkNegotiatedContentResult<SimulationsListResponse>;
-            Assert.IsNotNull(ok, "Expected OkNegotiatedContentResult<SimulationsListResponse>");
-            Assert.AreEqual(HttpStatusCode.OK, HttpStatusCode.OK);
-            Assert.AreEqual(5,      ok.Content.Count);
-            Assert.AreEqual(5,      ok.Content.Simulations.Count());
+            var ok = result as OkObjectResult;
+            Assert.IsNotNull(ok, "Expected OkObjectResult");
+            var payload = ok!.Value as SimulationsListResponse;
+            Assert.IsNotNull(payload);
+            Assert.AreEqual(5, payload!.Count);
+            Assert.AreEqual(5, payload.Simulations.Count());
         }
 
         [TestMethod]
@@ -169,10 +170,12 @@ namespace CreditSim.Tests
 
             var result = await _controller.GetSimulations();
 
-            var ok = result as OkNegotiatedContentResult<SimulationsListResponse>;
+            var ok = result as OkObjectResult;
             Assert.IsNotNull(ok);
-            Assert.AreEqual(0, ok.Content.Count);
-            Assert.AreEqual(0, ok.Content.Simulations.Count());
+            var payload = ok!.Value as SimulationsListResponse;
+            Assert.IsNotNull(payload);
+            Assert.AreEqual(0, payload!.Count);
+            Assert.AreEqual(0, payload.Simulations.Count());
         }
 
         [TestMethod]
@@ -190,9 +193,11 @@ namespace CreditSim.Tests
 
             var result = await _controller.GetSimulations();
 
-            var ok = result as OkNegotiatedContentResult<SimulationsListResponse>;
+            var ok = result as OkObjectResult;
             Assert.IsNotNull(ok);
-            Assert.AreEqual(15, ok.Content.Count);
+            var payload = ok!.Value as SimulationsListResponse;
+            Assert.IsNotNull(payload);
+            Assert.AreEqual(15, payload!.Count);
         }
 
         // ----------------------------------------------------------------
@@ -215,11 +220,12 @@ namespace CreditSim.Tests
 
             var result = await _controller.GetSimulation(1);
 
-            var ok = result as OkNegotiatedContentResult<SimulationDetailResponse>;
-            Assert.IsNotNull(ok, "Expected OkNegotiatedContentResult<SimulationDetailResponse>");
-            Assert.AreEqual(1,                "Test User for ID" == ok.Content.Simulation.Name ? 1 : 0);
-            Assert.AreEqual("Test User for ID", ok.Content.Simulation.Name);
-            Assert.AreEqual(1, ok.Content.Simulation.Id);
+            var ok = result as OkObjectResult;
+            Assert.IsNotNull(ok, "Expected OkObjectResult");
+            var payload = ok!.Value as SimulationDetailResponse;
+            Assert.IsNotNull(payload);
+            Assert.AreEqual("Test User for ID", payload!.Simulation.Name);
+            Assert.AreEqual(1, payload.Simulation.Id);
         }
 
         [TestMethod]
@@ -229,10 +235,10 @@ namespace CreditSim.Tests
 
             var result = await _controller.GetSimulation(99999);
 
-            var content = result as NegotiatedContentResult<ErrorResponse>;
-            Assert.IsNotNull(content, "Expected NegotiatedContentResult<ErrorResponse>");
-            Assert.AreEqual(HttpStatusCode.NotFound, content.StatusCode);
-            Assert.AreEqual("Simulation not found", content.Content.Error);
+            var objectResult = AssertObjectResult(result, HttpStatusCode.NotFound);
+            var payload = objectResult.Value as ErrorResponse;
+            Assert.IsNotNull(payload);
+            Assert.AreEqual("Simulation not found", payload!.Error);
         }
 
         [TestMethod]
@@ -241,9 +247,7 @@ namespace CreditSim.Tests
             // id < 1 triggers validation in the controller
             var result = await _controller.GetSimulation(0);
 
-            var content = result as NegotiatedContentResult<ErrorResponse>;
-            Assert.IsNotNull(content);
-            Assert.AreEqual(HttpStatusCode.BadRequest, content.StatusCode);
+            AssertObjectResult(result, HttpStatusCode.BadRequest);
         }
 
         // ----------------------------------------------------------------
@@ -254,18 +258,18 @@ namespace CreditSim.Tests
         public void GetScoringCriteria_Returns200WithCriteria()
         {
             _mockService.Setup(s => s.GetScoringCriteria())
-                .Returns(new Core.Models.ScoringCriteria
+                .Returns(new ScoringCriteria
                 {
                     BaseScore = 600,
-                    Adjustments = new Core.Models.ScoringAdjustments
+                    Adjustments = new ScoringAdjustments
                     {
-                        Age = new Core.Models.AgeAdjustments { Under25 = -50, Over60 = -30 },
-                        Income = new Core.Models.IncomeAdjustments { Over50k = 40 },
-                        DebtToIncomeRatio = new Core.Models.DebtAdjustments { Over40Percent = -80 },
-                        CreditHistory = new Core.Models.CreditHistoryAdjustments { Bad = -150 },
-                        LoanToIncomeRatio = new Core.Models.LoanAdjustments { Over50Percent = -50 }
+                        Age = new AgeAdjustments { Under25 = -50, Over60 = -30 },
+                        Income = new IncomeAdjustments { Over50k = 40 },
+                        DebtToIncomeRatio = new DebtAdjustments { Over40Percent = -80 },
+                        CreditHistory = new CreditHistoryAdjustments { Bad = -150 },
+                        LoanToIncomeRatio = new LoanAdjustments { Over50Percent = -50 }
                     },
-                    RiskCategories = new Core.Models.RiskCategories
+                    RiskCategories = new RiskCategories
                     {
                         LowRisk = "750+", MediumRisk = "650-749", HighRisk = "Below 650"
                     }
@@ -273,8 +277,9 @@ namespace CreditSim.Tests
 
             var result = _controller.GetScoringCriteria();
 
-            var ok = result as OkNegotiatedContentResult<object>;
-            Assert.IsNotNull(ok, "Expected OkNegotiatedContentResult");
+            var ok = result as OkObjectResult;
+            Assert.IsNotNull(ok, "Expected OkObjectResult");
+            Assert.IsNotNull(ok!.Value);
         }
 
         // ----------------------------------------------------------------
@@ -286,11 +291,13 @@ namespace CreditSim.Tests
         {
             var result = _controller.Health();
 
-            var ok = result as OkNegotiatedContentResult<HealthResponse>;
-            Assert.IsNotNull(ok, "Expected OkNegotiatedContentResult<HealthResponse>");
-            Assert.AreEqual("healthy", ok.Content.Status);
-            Assert.IsNotNull(ok.Content.Timestamp);
-            Assert.IsTrue(ok.Content.Uptime >= 0);
+            var ok = result as OkObjectResult;
+            Assert.IsNotNull(ok, "Expected OkObjectResult");
+            var payload = ok!.Value as HealthResponse;
+            Assert.IsNotNull(payload);
+            Assert.AreEqual("healthy", payload!.Status);
+            Assert.IsNotNull(payload.Timestamp);
+            Assert.IsTrue(payload.Uptime >= 0);
         }
     }
 }

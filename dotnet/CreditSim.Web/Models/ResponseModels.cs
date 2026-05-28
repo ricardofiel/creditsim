@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace CreditSim.Web.Models
 {
     // ---------- POST /api/simulate ----------
@@ -81,4 +79,3 @@ namespace CreditSim.Web.Models
         public string? Message { get; set; }
     }
 }
-
